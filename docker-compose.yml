@@ -1,0 +1,7 @@
+
+services:
+  fabric-mod:
+    build: .
+    container_name: fabric_mod_builder
+    volumes:
+      - .:/app
