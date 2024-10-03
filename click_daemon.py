@@ -32,6 +32,7 @@ def sneak_back_place():
         time.sleep(0.4)
         keyboard.tap('u')
         keyboard.release('s')
+    time.sleep(0.4)
     keyboard.release(Key.shift)
 
 def sneak_walk():

@@ -17,7 +17,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.InetSocketAddress;
 import java.util.Scanner;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class UnlockCursorMod implements ClientModInitializer {
 
@@ -26,6 +30,8 @@ public class UnlockCursorMod implements ClientModInitializer {
     private OutputStream outputStream;
     private InputStream inputStream;
     private Thread responseListenerThread;
+    private ExecutorService reconnectExecutor;
+    private boolean running = true;  // Control the running state of the client
 
     private KeyBinding unlockCursorKey;
     private KeyBinding disableModKey;
@@ -34,6 +40,7 @@ public class UnlockCursorMod implements ClientModInitializer {
     private KeyBinding sneakWalkKey;
     private KeyBinding walkJumpKey;
     private KeyBinding jumpPlaceKey;
+
     private boolean cursorUnlocked = false;
     private boolean needsReset = false;
     private boolean modEnabled = true; // New boolean to track if the mod is enabled
@@ -45,23 +52,9 @@ public class UnlockCursorMod implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         
-        // Attempt to connect to the Python daemon
-        try {
-            // allow reusing the address and port
+        reconnectExecutor = Executors.newSingleThreadExecutor();  // Executor for reconnection
 
-            socket = new Socket("127.0.0.1", 12345); // Connect to the daemon on localhost and port 12345
-            socket.setReuseAddress(true);  // Allow socket reuse
-            
-            outputStream = socket.getOutputStream();
-            inputStream = socket.getInputStream();
-            System.out.println("Connected to Python daemon.");
-
-            // Start a separate thread to listen for responses from the daemon
-            responseListenerThread = new Thread(this::listenForResponses);
-            responseListenerThread.start();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        connectToServerAsync();  // Connect to the server asynchronously
 
         // Keybinding to unlock the cursor (e.g., "U" key)
         unlockCursorKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -170,30 +163,98 @@ public class UnlockCursorMod implements ClientModInitializer {
             handleScreenOpen(client, screen);
         });
     }
-
+    
     private void sendToPython(String message) {
-        try {
-            outputStream.write(message.getBytes());
-            outputStream.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
+        // Check if the socket and output stream are initialized and the socket is connected
+        if (socket == null || socket.isClosed() || outputStream == null) {
+            System.err.println("Socket is closed or output stream is not initialized. Cannot send message: " + message);
+            
+            // Attempt to reconnect
+            connectToServerAsync();
+            return;  // Exit this method, as we cannot send a message without a valid connection
         }
+
+        try {
+            outputStream.write((message + "\n").getBytes());  // Send the message with a newline
+            outputStream.flush();  // Flush the stream to ensure the message is sent
+            System.out.println("Message sent to Python: " + message);
+        } catch (IOException e) {
+            System.err.println("Error while sending message to Python: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Handle reconnection logic if needed
+            closeConnections();  // Close current connections
+            connectToServerAsync();  // Attempt to reconnect asynchronously
+        }
+    }
+
+    
+    // Attempt to connect to the server asynchronously (non-blocking)
+    private void connectToServerAsync() {
+        reconnectExecutor.execute(() -> {
+            while (running) {
+                try {
+                    // Attempt to connect
+                    socket = new Socket();
+                    socket.setReuseAddress(true);  // Allow socket reuse
+                    socket.connect(new InetSocketAddress("127.0.0.1", 12345), 10000); // 10-second timeout
+
+                    outputStream = socket.getOutputStream();
+                    inputStream = socket.getInputStream();
+                    System.out.println("Connected to Python daemon.");
+
+                    // Start a separate thread to listen for responses from the daemon
+                    if (responseListenerThread == null || !responseListenerThread.isAlive()) {
+                        responseListenerThread = new Thread(this::listenForResponses);
+                        responseListenerThread.start();
+                    }
+
+                    // If connected successfully, break out of the retry loop
+                    break;
+
+                } catch (IOException e) {
+                    System.err.println("Failed to connect or lost connection, retrying in 5 seconds...");
+                    closeConnections();  // Ensure any existing connections are closed before retrying
+                    
+                    // Sleep for a while before retrying
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException interruptedException) {
+                        Thread.currentThread().interrupt();  // Ensure the thread is correctly interrupted
+                        return;  // Exit if the thread was interrupted
+                    }
+                }
+            }
+        });
     }
 
     // Separate thread to listen for responses from the Python daemon
     private void listenForResponses() {
         try (Scanner scanner = new Scanner(inputStream)) {
-            while (scanner.hasNextLine()) {
+            while (running && scanner.hasNextLine()) {
                 String response = scanner.nextLine();
                 System.out.println("Received response from daemon: " + response);
-
-                // You can add additional in-game events based on the response here
-                // For example, trigger an action based on the response content
             }
         } catch (Exception e) {
+            System.err.println("Connection lost while listening for responses. Attempting to reconnect...");
+            // Trigger reconnection logic in case the connection is lost
+            connectToServerAsync();
+        } finally {
+            // Ensure connections are closed properly
+            closeConnections();
+        }
+    }
+
+    private void closeConnections() {
+        try {
+            if (outputStream != null) outputStream.close();
+            if (inputStream != null) inputStream.close();
+            if (socket != null) socket.close();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
     // Method to toggle the cursor lock state (invoked in END_CLIENT_TICK)
     private void toggleCursor(MinecraftClient client) {
         if (client != null && client.mouse != null) {

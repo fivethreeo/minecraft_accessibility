@@ -1,5 +1,5 @@
 # gradle
-
+venv/
 .gradle/
 build/
 out/

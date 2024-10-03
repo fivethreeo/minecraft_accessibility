@@ -1,5 +1,12 @@
 #!/bin/bash
 
+sigint_handler()
+{
+  kill $PID
+  exit
+}
+
+trap sigint_handler SIGINT
 
 # Create a virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
@@ -14,7 +21,12 @@ source venv/bin/activate
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
-# Start Python daemon in the background
+# Start Python daemon in the background restart it if the script changes (using inotifywait)
 echo "Starting Python daemon..."
 
-python3 daemon/daemon.py
+while true; do
+    python3 click_daemon.py &
+    PID=$!
+    inotifywait -e modify click_daemon.py
+    kill $PID
+done
