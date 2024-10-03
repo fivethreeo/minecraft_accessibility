@@ -1,46 +1,41 @@
 import socket
 import threading
 import time
-from pynput.keyboard import Controller, Key
+import pyautogui
 
-keyboard = Controller()
 
 # Function to run keyboard commands
 def walk_jump():
-    keyboard.press('w')
-    time.sleep(0.4)
-    keyboard.press(Key.space)
-    time.sleep(0.4)
-    keyboard.release(Key.space)
-    keyboard.release('w')
+    with pyautogui.hold('w'):
+        time.sleep(0.4)
+        with pyautogui.hold('space'):
+            time.sleep(0.4)
 
 def jump_place():
-    keyboard.press(Key.space)
-    time.sleep(0.4)
-    keyboard.release(Key.space)
-    keyboard.tap('u')
+    with pyautogui.hold('space'):
+        time.sleep(0.4)
+        pyautogui.press('u')
 
 # Function to place a block
 def place_block():
-    keyboard.tap('u')
+    pyautogui.press('u')
 
 def sneak_back_place():
-    keyboard.press(Key.shift)
-    # Repeat 10 times
-    for i in range(10):
-        keyboard.press('s')
+    with pyautogui.hold('shift'):
         time.sleep(0.4)
-        keyboard.tap('u')
-        keyboard.release('s')
-    time.sleep(0.4)
-    keyboard.release(Key.shift)
-
+        with pyautogui.hold('s'):
+            # Repeat 10 times
+            for i in range(10):
+                time.sleep(0.4)
+                pyautogui.press('u')
+        time.sleep(0.4)
+        
 def sneak_walk():
-    keyboard.press(Key.shift)
-    keyboard.press('w')
-    time.sleep(0.4)
-    keyboard.release('w')
-    keyboard.release(Key.shift)
+    with pyautogui.hold('shift'):
+        time.sleep(0.4)
+        with pyautogui.hold('w'):
+            time.sleep(2)
+        time.sleep(0.4)
 
 # Make dictionary of commands and functions
 commands = {
