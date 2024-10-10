@@ -25,17 +25,22 @@ def sneak_back_place():
         time.sleep(0.4)
         with pyautogui.hold('s'):
             # Repeat 10 times
-            for i in range(10):
+            for i in range(40):
                 time.sleep(0.4)
                 pyautogui.press('u')
         time.sleep(0.4)
-        
+
 def sneak_walk():
     with pyautogui.hold('shift'):
         time.sleep(0.4)
         with pyautogui.hold('w'):
             time.sleep(2)
         time.sleep(0.4)
+        
+def back(how_long):
+    how_long = float(how_long)
+    with pyautogui.hold('s'):
+        time.sleep(how_long)
 
 # Make dictionary of commands and functions
 commands = {
@@ -43,7 +48,8 @@ commands = {
     'JUMP_PLACE': jump_place,
     'PLACE': place_block,
     'SNEAK_PLACE': sneak_back_place,
-    'SNEAK_WALK': sneak_walk
+    'SNEAK_WALK': sneak_walk,
+    'BACK': back
 }
 
 # Function to handle client connections
@@ -57,13 +63,19 @@ def handle_client(connection, address):
                 print(f'Connection closed by {address}')
                 break
             print(f'Received message: {message}.')
-            
-            # Process the message and run commands if necessary
-            if message in commands.keys():
-                commands[message]()
-                response = f'{message} command executed successfully.\n'
+            if message.find('|') != -1:
+                message = message.split('|')[0]
+                payload = message.split('|').slice(1)
+                if message in commands.keys():
+                    commands[message](*payload)
+                    response = f'{message} command executed successfully.\n'
             else:
-                response = f'Unknown command {message}.\n'
+                # Process the message and run commands if necessary
+                if message in commands.keys():
+                    commands[message]()
+                    response = f'{message} command executed successfully.\n'
+                else:
+                    response = f'Unknown command {message}.\n'
 
             # Send a response back to the client
             connection.sendall(response.encode('utf-8'))

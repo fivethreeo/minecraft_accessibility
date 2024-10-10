@@ -4,6 +4,7 @@ venv/
 build/
 out/
 classes/
+remappedSrc/
 
 # eclipse
 
@@ -17,9 +18,8 @@ classes/
 *.iws
 
 # vscode
-
-.settings/
 .vscode/
+.settings/
 bin/
 .classpath
 .project
