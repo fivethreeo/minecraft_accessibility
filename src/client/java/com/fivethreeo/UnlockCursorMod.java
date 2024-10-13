@@ -180,6 +180,14 @@ public class UnlockCursorMod implements ClientModInitializer {
                   System.out.println("Selected block would bring up a GUI. Not unlocking cursor.");
                   sendToPython("PLACE");
                   return;
+                } else if (isInteractiveBlock(hitBlock)) {
+                  System.out.println("Selected block: " + hitBlock);
+                  System.out.println("Selected block is interactive. Placing and locking cursor.");
+                  sendToPython("PLACE");
+                  if (cursorUnlocked) {
+                    toggleCursor(client, true);
+                  }
+                  return;
                 } else {
 
                   if (Arrays.asList(ignoreUnlockItems).contains(mainHandItem)) {
@@ -212,7 +220,16 @@ public class UnlockCursorMod implements ClientModInitializer {
                   System.out.println("Selected entity would bring up a GUI. Not unlocking cursor.");
                   sendToPython("PLACE");
                   return;
-                } else {
+                } else if (isInteractiveEntity(hitEntity)) {
+                  System.out.println("Selected entity: " + hitEntity);
+                  System.out.println("Selected entity is interactive. Placing and locking cursor.");
+                  sendToPython("PLACE");
+                  if (cursorUnlocked) {
+                    toggleCursor(client, true);
+                  }
+                  return;
+                } 
+                else {
                   toggleCursor(client, true);
                   return;
                 }
@@ -305,10 +322,26 @@ public class UnlockCursorMod implements ClientModInitializer {
       block instanceof net.minecraft.block.StonecutterBlock;
   }
 
+  private boolean isInteractiveBlock(Block block) {
+    // Check if the block is interactive (e.g., doors, buttons, levers, etc.)
+    return block instanceof net.minecraft.block.DoorBlock ||
+      block instanceof net.minecraft.block.TrapdoorBlock ||
+      block instanceof net.minecraft.block.FenceGateBlock ||
+      block instanceof net.minecraft.block.LeverBlock ||
+      block instanceof net.minecraft.block.ButtonBlock ||
+      block instanceof net.minecraft.block.PressurePlateBlock ||
+      block instanceof net.minecraft.block.TripwireHookBlock ||
+      block instanceof net.minecraft.block.RepeaterBlock;
+  }
+
   private boolean isGuiEntity(Entity entity) {
     return entity instanceof net.minecraft.entity.passive.VillagerEntity ||
       entity instanceof net.minecraft.entity.passive.AnimalEntity ||
       entity instanceof net.minecraft.entity.passive.MerchantEntity;
+  }
+
+  private boolean isInteractiveEntity(Entity entity) {
+    return entity instanceof net.minecraft.entity.passive.AnimalEntity;
   }
 
   private void sendToPython(String message) {
